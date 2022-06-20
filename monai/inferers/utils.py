@@ -32,6 +32,7 @@ def sliding_window_inference(
     cval: float = 0.0,
     sw_device: Union[torch.device, str, None] = None,
     device: Union[torch.device, str, None] = None,
+    has_aux: bool = False,
     *args: Any,
     **kwargs: Any,
 ) -> torch.Tensor:
@@ -118,6 +119,8 @@ def sliding_window_inference(
 
     # Perform predictions
     output_image, count_map = torch.tensor(0.0, device=device), torch.tensor(0.0, device=device)
+    output_prob = []
+
     _initialized = False
     for slice_g in range(0, total_slices, sw_batch_size):
         slice_range = range(slice_g, min(slice_g + sw_batch_size, total_slices))
@@ -126,7 +129,12 @@ def sliding_window_inference(
             for idx in slice_range
         ]
         window_data = torch.cat([inputs[win_slice] for win_slice in unravel_slice]).to(sw_device)
-        seg_prob = predictor(window_data, *args, **kwargs).to(device)  # batched patch segmentation
+        if has_aux:
+            seg_prob, prob_out = predictor(window_data, *args, **kwargs)
+            seg_prob = seg_prob.to(device)
+            output_prob.append(prob_out.to(device))
+        else:
+            seg_prob = predictor(window_data, *args, **kwargs).to(device)  # batched patch segmentation
 
         if not _initialized:  # init. buffer at the first iteration
             output_classes = seg_prob.shape[1]
@@ -150,7 +158,14 @@ def sliding_window_inference(
         final_slicing.insert(0, slice_dim)
     while len(final_slicing) < len(output_image.shape):
         final_slicing.insert(0, slice(None))
-    return output_image[final_slicing]
+    
+    img_res = output_image[final_slicing]
+    
+    if has_aux:
+        output_prob = torch.cat(output_prob, 0).max(0)[0]
+        return img_res, output_prob
+        
+    return img_res
 
 
 def _get_scan_interval(
