@@ -162,7 +162,7 @@ def sliding_window_inference(
     img_res = output_image[final_slicing]
     
     if has_aux:
-        output_prob = torch.cat(output_prob, 0).max(0)[0]
+        output_prob = torch.cat(output_prob, 0)
         return img_res, output_prob
         
     return img_res
