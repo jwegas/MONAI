@@ -163,7 +163,13 @@ def sliding_window_inference(
     
     if has_aux:
         output_prob = torch.cat(output_prob, 0)
-        return img_res, output_prob
+        output_prob_final = []
+        for batch_idx_ in range(batch_size):
+            start_idx = batch_idx_ * num_win
+            stop_idx = start_idx + num_win
+            output_prob_final.append(output_prob[start_idx:stop_idx].max(0)[0])
+        output_prob_final = torch.stack(output_prob_final)
+        return img_res, output_prob_final 
         
     return img_res
 
